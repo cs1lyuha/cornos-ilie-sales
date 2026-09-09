@@ -1,42 +1,52 @@
-# Cornos Ilie Sales
+# Cornos Ilie - Mobile delivery proof
 
-Expo / React Native MVP for the M2 field-sales app from the Slack brief.
+Expo / React Native MVP for the individual mobile brief:
 
-## What is included
+> Delivery confirmation screen that must work without internet.
 
-- Assigned-customer list with search.
-- Customer detail and product search.
-- Recently ordered products are promoted to the top.
-- Large `+` / `-` quantity controls designed for one-handed use.
-- Orders are stored locally with AsyncStorage, so the core flow works offline.
-- A local sync queue and sync button simulate the future backend handoff.
-- Stopwatch and touch-count proxy show whether the order meets the brief target: under 40 seconds and at most 6 touches.
-
-## Run
+## Run in three commands
 
 ```bash
-npm install
+git clone https://github.com/cs1lyuha/cornos-ilie-sales.git
+cd cornos-ilie-sales && npm install
 npx expo start
 ```
 
 Open the project in Expo Go or an Android emulator.
 
-## Current assumptions
+## What works
 
-The backend, auth, real product catalog, and conflict rules were not provided. This version uses explicit demo data and a deterministic local queue so the user experience and data boundaries can be validated before Taran's visit/history module is integrated.
+- Route-of-the-day list with delivery stops and progress.
+- Delivery detail with order lines, value, and address.
+- Three explicit outcomes: delivered in full, delivered partially, or refused.
+- Optional note saved with the delivery event.
+- Every event is written to AsyncStorage before the UI leaves the delivery screen.
+- The header shows pending offline events; tapping it simulates a later sync.
+- The flow works with airplane mode enabled because the delivery decision does not require a network request.
 
-## Next integration boundary
+## Demo data
 
-The current order shape is:
+The brief did not include an API, authentication, database schema, or real catalog. The app therefore uses three local stops and a local event queue. The future API adapter should replace `AsyncStorage` in `App.tsx` while preserving this event shape:
 
 ```ts
 {
   id: string;
-  customerId: string;
-  cart: Record<string, number>;
-  total: number;
+  stopId: string;
+  status: 'delivered' | 'partial' | 'refused';
+  note: string;
   createdAt: string;
 }
 ```
 
-The queue can later be replaced by an API adapter without changing the field-sales screens.
+## Verification path
+
+1. Start the app.
+2. Open any stop.
+3. Turn on airplane mode.
+4. Add a note and tap **Livrat integral**.
+5. Return to the route: the stop remains marked as delivered.
+6. Tap the offline counter to simulate synchronization.
+
+## Scope boundary
+
+This is the mobile slice only. Signature capture, photo proof, real route download, authentication, retries, and server conflict resolution are intentionally left as the next integration step because no backend contract was provided.
