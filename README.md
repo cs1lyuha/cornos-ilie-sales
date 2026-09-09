@@ -50,3 +50,15 @@ The brief did not include an API, authentication, database schema, or real catal
 ## Scope boundary
 
 This is the mobile slice only. Signature capture, photo proof, real route download, authentication, retries, and server conflict resolution are intentionally left as the next integration step because no backend contract was provided.
+
+The delivery event contract is:
+
+```ts
+{
+  id: string;
+  stopId: string;
+  status: 'delivered' | 'partial' | 'refused';
+  note: string;
+  createdAt: string;
+}
+```
