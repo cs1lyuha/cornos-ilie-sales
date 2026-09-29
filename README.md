@@ -6,6 +6,8 @@ Expo / React Native MVP for the individual mobile brief:
 
 > Delivery confirmation screen that must work without internet.
 
+📖 **[Cum funcționează (explicație completă în română)](CUM-FUNCTIONEAZA.md)**: aplicația, serverul, dashboard-ul, drumul unei livrări și scenariul de demo.
+
 ## Run in three commands
 
 ```bash
