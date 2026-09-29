@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { applyEvents, loadRoute, syncQueue } from './src/sync';
 
 type StopStatus = 'pending' | 'delivered' | 'partial' | 'refused';
 
@@ -59,6 +60,7 @@ const STOPS: Stop[] = [
 ];
 
 const EVENTS_KEY = 'cornos-ilie-delivery-events';
+const SYNC_RETRY_MS = 30_000;
 
 export default function App() {
   const [stops, setStops] = useState(STOPS);
@@ -66,11 +68,22 @@ export default function App() {
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [note, setNote] = useState('');
   const [isOnline, setIsOnline] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    void loadEvents();
+    void (async () => {
+      await loadEvents(); // local route + queue first, instantly and offline
+      const route = await loadRoute(STOPS);
+      if (route.fromServer) setIsOnline(true);
+      const queued = await loadEvents(); // re-read: a delivery may have been saved meanwhile
+      setStops(applyEvents(route.stops, queued));
+      await syncEvents(true);
+    })();
+    // Pending events are retried in the background; saving never waits for this.
+    const retry = setInterval(() => void syncEvents(true), SYNC_RETRY_MS);
+    return () => clearInterval(retry);
   }, []);
 
   useEffect(() => {
@@ -86,13 +99,14 @@ export default function App() {
 
   async function loadEvents() {
     const stored = await AsyncStorage.getItem(EVENTS_KEY);
-    if (!stored) return;
+    if (!stored) return [];
     const storedEvents = JSON.parse(stored) as DeliveryEvent[];
     setEvents(storedEvents);
     setStops((current) => current.map((stop) => {
       const event = storedEvents.find((item) => item.stopId === stop.id);
       return event ? { ...stop, status: event.status } : stop;
     }));
+    return storedEvents;
   }
 
   function openStop(stop: Stop) {
@@ -105,7 +119,7 @@ export default function App() {
   async function saveDelivery(status: Exclude<StopStatus, 'pending'>) {
     if (!selectedStop) return;
     const event: DeliveryEvent = {
-      id: `event-${Date.now()}`,
+      id: `event-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       stopId: selectedStop.id,
       status,
       note: note.trim(),
@@ -121,15 +135,30 @@ export default function App() {
       'Salvat offline',
       `${selectedStop.customer}: ${status === 'delivered' ? 'livrare confirmată' : status === 'partial' ? 'livrare parțială' : 'livrare refuzată'}. Evenimentul va fi sincronizat ulterior.`,
     );
+    void syncEvents(true); // fire-and-forget: the event is already safe on the phone
   }
 
-  async function syncEvents() {
-    if (events.length === 0) return;
-    setIsOnline(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify([]));
-    setEvents([]);
-    Alert.alert('Sincronizare simulată', 'Evenimentele locale au fost trimise către server.');
+  // Real sync (src/sync.ts): only ids accepted by the server leave the local queue.
+  async function syncEvents(silent = false) {
+    if (!silent) setIsSyncing(true);
+    const result = await syncQueue<DeliveryEvent>(EVENTS_KEY);
+    if (!silent) setIsSyncing(false);
+    setEvents(result.remaining);
+    if (result.attempted > 0) setIsOnline(result.ok);
+    if (silent) return;
+    if (result.attempted === 0) {
+      Alert.alert('Totul e sincronizat', 'Nu există evenimente în așteptare.');
+    } else if (result.ok) {
+      Alert.alert(
+        'Sincronizat',
+        `${result.accepted.length} evenimente trimise la server.${result.remaining.length ? ` ${result.remaining.length} rămân în așteptare.` : ''}`,
+      );
+    } else {
+      Alert.alert(
+        'Offline',
+        `Serverul nu răspunde (${result.error ?? 'eroare'}). ${result.remaining.length} evenimente rămân salvate pe telefon și vor fi retrimise automat.`,
+      );
+    }
   }
 
   return (
@@ -142,7 +171,7 @@ export default function App() {
         </View>
         <Pressable style={[styles.connection, isOnline && styles.connectionOnline]} onPress={() => void syncEvents()}>
           <View style={[styles.connectionDot, isOnline && styles.connectionDotOnline]} />
-          <Text style={styles.connectionText}>{pendingCount ? `${pendingCount} offline` : 'Offline-first'}</Text>
+          <Text style={styles.connectionText}>{isSyncing ? 'Sincronizare…' : pendingCount ? `${pendingCount} offline` : isOnline ? 'Sincronizat' : 'Offline-first'}</Text>
         </Pressable>
       </View>
 
