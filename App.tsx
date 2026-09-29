@@ -11,12 +11,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
 import { ProofBadge, ProofSection } from './src/proof/ProofSection';
 import { checkProof } from './src/proof/rules';
 import { compactProof } from './src/proof/types';
 import { applyEventsToStops, createEvent, routeProgress as formatRouteProgress, upsertEvent } from './src/queue';
-import { loadEvents as loadStoredEvents, saveEvents } from './src/storage';
+import { EVENTS_KEY, loadEvents as loadStoredEvents, saveEvents } from './src/storage';
+import { loadRoute, syncQueue } from './src/sync';
 import type { DeliveryEvent, DeliveryProof, Stop, StopStatus } from './src/types';
 
 const STOPS: Stop[] = [
@@ -46,6 +46,8 @@ const STOPS: Stop[] = [
   },
 ];
 
+const SYNC_RETRY_MS = 30_000;
+
 export default function App() {
   const [stops, setStops] = useState(STOPS);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
@@ -54,11 +56,22 @@ export default function App() {
   const [proof, setProof] = useState<DeliveryProof>({});
   const [isSigning, setIsSigning] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    void loadEvents();
+    void (async () => {
+      await loadEvents(); // local route + queue first, instantly and offline
+      const route = await loadRoute(STOPS);
+      if (route.fromServer) setIsOnline(true);
+      const queued = await loadEvents(); // re-read: a delivery may have been saved meanwhile
+      setStops(applyEventsToStops(route.stops, queued));
+      await syncEvents(true);
+    })();
+    // Pending events are retried in the background; saving never waits for this.
+    const retry = setInterval(() => void syncEvents(true), SYNC_RETRY_MS);
+    return () => clearInterval(retry);
   }, []);
 
   useEffect(() => {
@@ -78,9 +91,9 @@ export default function App() {
 
   async function loadEvents() {
     const storedEvents = await loadStoredEvents();
-    if (storedEvents.length === 0) return;
     setEvents(storedEvents);
     setStops((current) => applyEventsToStops(current, storedEvents));
+    return storedEvents;
   }
 
   function openStop(stop: Stop) {
@@ -110,15 +123,30 @@ export default function App() {
       'Salvat offline',
       `${selectedStop.customer}: ${status === 'delivered' ? 'livrare confirmată' : status === 'partial' ? 'livrare parțială' : 'livrare refuzată'}. Evenimentul va fi sincronizat ulterior.`,
     );
+    void syncEvents(true); // fire-and-forget: the event is already safe on the phone
   }
 
-  async function syncEvents() {
-    if (events.length === 0) return;
-    setIsOnline(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    await saveEvents([]);
-    setEvents([]);
-    Alert.alert('Sincronizare simulată', 'Evenimentele locale au fost trimise către server.');
+  // Real sync (src/sync.ts): only ids accepted by the server leave the local queue.
+  async function syncEvents(silent = false) {
+    if (!silent) setIsSyncing(true);
+    const result = await syncQueue<DeliveryEvent>(EVENTS_KEY);
+    if (!silent) setIsSyncing(false);
+    setEvents(result.remaining);
+    if (result.attempted > 0) setIsOnline(result.ok);
+    if (silent) return;
+    if (result.attempted === 0) {
+      Alert.alert('Totul e sincronizat', 'Nu există evenimente în așteptare.');
+    } else if (result.ok) {
+      Alert.alert(
+        'Sincronizat',
+        `${result.accepted.length} evenimente trimise la server.${result.remaining.length ? ` ${result.remaining.length} rămân în așteptare.` : ''}`,
+      );
+    } else {
+      Alert.alert(
+        'Offline',
+        `Serverul nu răspunde (${result.error ?? 'eroare'}). ${result.remaining.length} evenimente rămân salvate pe telefon și vor fi retrimise automat.`,
+      );
+    }
   }
 
   return (
@@ -131,7 +159,7 @@ export default function App() {
         </View>
         <Pressable style={[styles.connection, isOnline && styles.connectionOnline]} onPress={() => void syncEvents()}>
           <View style={[styles.connectionDot, isOnline && styles.connectionDotOnline]} />
-          <Text style={styles.connectionText}>{pendingCount ? `${pendingCount} offline` : 'Offline-first'}</Text>
+          <Text style={styles.connectionText}>{isSyncing ? 'Sincronizare…' : pendingCount ? `${pendingCount} offline` : isOnline ? 'Sincronizat' : 'Offline-first'}</Text>
         </Pressable>
       </View>
 

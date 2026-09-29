@@ -15,7 +15,8 @@ export function createEvent(
 ): DeliveryEvent {
   const now = options.now ?? new Date();
   const event: DeliveryEvent = {
-    id: `event-${now.getTime()}`,
+    // Random suffix: two events in the same millisecond must not be deduped by the server.
+    id: `event-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
     stopId,
     status,
     note: note.trim(),

@@ -14,7 +14,7 @@ function event(stopId: string, status: DeliveryEvent['status'], id = `event-${st
 describe('createEvent', () => {
   it('builds an event with a time-based id, ISO timestamp and trimmed note', () => {
     expect(createEvent('stop-1', 'delivered', '  lipsesc 2 baxuri  ', { now: NOW })).toEqual({
-      id: `event-${NOW.getTime()}`,
+      id: expect.stringMatching(new RegExp(`^event-${NOW.getTime()}-`)),
       stopId: 'stop-1',
       status: 'delivered',
       note: 'lipsesc 2 baxuri',
@@ -28,7 +28,7 @@ describe('createEvent', () => {
     const at = Date.parse(created.createdAt);
     expect(at).toBeGreaterThanOrEqual(before);
     expect(at).toBeLessThanOrEqual(Date.now());
-    expect(created.id).toBe(`event-${at}`);
+    expect(created.id).toMatch(new RegExp(`^event-${at}-[a-z0-9]+$`));
   });
 
   it('omits proof unless provided', () => {
