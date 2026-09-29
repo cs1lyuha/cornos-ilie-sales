@@ -8,6 +8,27 @@ Expo / React Native MVP for the individual mobile brief:
 
 📖 **[Cum funcționează (explicație completă în română)](CUM-FUNCTIONEAZA.md)**: aplicația, serverul, dashboard-ul, drumul unei livrări și scenariul de demo.
 
+## Capturi de ecran (iPhone, Expo Go)
+
+Un traseu complet, făcut pe un telefon real, cu toate cele trei livrări salvate offline:
+
+<table>
+  <tr>
+    <td align="center" width="20%"><img src="docs/screenshots/1-ruta.png" width="200" alt="Ruta zilei cu trei opriri"></td>
+    <td align="center" width="20%"><img src="docs/screenshots/2-detalii-livrare.png" width="200" alt="Detaliile comenzii, nota și semnătura clientului"></td>
+    <td align="center" width="20%"><img src="docs/screenshots/3-dovada-semnatura-poza.png" width="200" alt="Semnătura, poza atașată și cele trei butoane de confirmare"></td>
+    <td align="center" width="20%"><img src="docs/screenshots/4-salvat-offline.png" width="200" alt="Mesajul Salvat offline după refuz"></td>
+    <td align="center" width="20%"><img src="docs/screenshots/5-ruta-finalizata.png" width="200" alt="Ruta finalizată 3/3 cu dovadă la fiecare oprire"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>1. Ruta de azi</b><br>opriri cu status și dovadă, contorul „offline” sus</td>
+    <td align="center"><b>2. Livrarea</b><br>comanda, nota și semnătura clientului cu degetul</td>
+    <td align="center"><b>3. Dovada</b><br>semnătură + poză; butoanele arată ce mai lipsește</td>
+    <td align="center"><b>4. Salvat offline</b><br>evenimentul e pe telefon, se sincronizează ulterior</td>
+    <td align="center"><b>5. Ruta gata</b><br>3/3: livrat, refuzat, parțial, toate cu 📷 ✍️</td>
+  </tr>
+</table>
+
 ## Run in three commands
 
 ```bash

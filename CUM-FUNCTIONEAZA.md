@@ -8,6 +8,8 @@ Proiectul are trei părți care lucrează împreună:
 | **Serverul** | `server/` | sistemul | primește evenimentele de livrare, le păstrează și le dă mai departe |
 | **Dashboard-ul** | `dashboard/` | dispecerul | vede live pe calculator ce s-a livrat, unde și cu ce dovadă |
 
+Capturi de ecran de pe un telefon real: vezi secțiunea **[Capturi de ecran din README](README.md#capturi-de-ecran-iphone-expo-go)**.
+
 ## Drumul unei livrări
 
 ```mermaid
