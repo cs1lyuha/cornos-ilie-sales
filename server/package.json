@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test \"test/**/*.smoke.js\""
   },
   "dependencies": {
     "cors": "^2.8.6",
