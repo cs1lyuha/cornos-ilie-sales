@@ -104,6 +104,16 @@ Buttons stay disabled until their rule is satisfied, and each button shows an in
 - Camera permission text (Romanian) is set through the `expo-image-picker` plugin in `app.json`; microphone permission is disabled. A new native build is needed for the permission text to apply (Expo Go uses its own).
 - Known limit: on native, `photoUri` is a local `file://` path in the app cache. The sync step must upload the file itself; copying it into permanent storage (`expo-file-system`) is a follow-up.
 
+## Dashboard dispecer
+
+`dashboard/` is a live web view for the dispatcher (vanilla HTML/CSS/JS, no build step, UI in Romanian).
+
+- **With the server:** open `http://localhost:4000/dashboard` — the API is read from the same origin.
+- **Without the server (demo):** open `dashboard/index.html?demo=1` (or `http://localhost:4000/dashboard/?demo=1`); built-in fake events arrive over the first ~15 s, and the banner can simulate a lost connection or restart the scenario.
+- **Another API host:** `dashboard/index.html?api=http://192.168.1.20:4000`, or set it under **Setări** (stored in `localStorage`). Opened as a local file without `?api`, it defaults to `http://localhost:4000`, which requires CORS on the server.
+
+It polls `GET /route` and `GET /events` every 3 s and shows: a connection indicator with the last update time; KPIs (stops done / total, delivered / partial / refused, value delivered in full plus partial value in MDL); every stop with its latest event (status chip with icon + text, time, note, signature thumbnail, `📷 poză atașată` badge); and a live feed of events, newest first, with new ones highlighted. Light and dark follow `prefers-color-scheme`.
+
 ## Scope boundary
 
 Still out of scope: authentication, uploading the photo file itself during sync, and server conflict resolution beyond "latest event per stop wins".

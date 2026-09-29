@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Dashboard dispecer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Sari la conținut</a>
+
+  <header class="topbar">
+    <div class="topbar__brand">
+      <p class="eyebrow">EASYDISTRIBUTION / DISPECER</p>
+      <h1>Livrările zilei</h1>
+    </div>
+    <div class="topbar__status">
+      <p id="conn" class="conn conn--connecting">
+        <span class="conn__dot" aria-hidden="true"></span>
+        <span id="conn-label" class="conn__label">Se conectează…</span>
+        <span id="conn-time" class="conn__time"></span>
+      </p>
+      <details class="settings" id="settings">
+        <summary>
+          <span aria-hidden="true">⚙</span>
+          <span>Setări</span>
+        </summary>
+        <form id="settings-form" class="settings__panel">
+          <label for="api-input">Adresa API</label>
+          <input id="api-input" name="api" type="url" inputmode="url" placeholder="http://localhost:4000" autocomplete="off" spellcheck="false">
+          <p class="settings__hint" id="api-hint">Gol = aceeași origine (când pagina e servită la /dashboard).</p>
+          <div class="settings__actions">
+            <button type="submit" class="btn btn--primary">Salvează</button>
+            <a class="btn" id="demo-link" href="?demo=1">Mod demo</a>
+          </div>
+        </form>
+      </details>
+    </div>
+  </header>
+
+  <div id="demo-banner" class="banner" hidden>
+    <span><strong>Mod demo</strong> — date simulate, fără server. Evenimentele noi apar automat.</span>
+    <span class="banner__actions">
+      <button type="button" class="btn btn--small" id="demo-offline" aria-pressed="false">Simulează pierderea conexiunii</button>
+      <button type="button" class="btn btn--small" id="demo-reset">Repornește demo</button>
+    </span>
+  </div>
+
+  <main id="main" class="layout">
+    <section class="kpis" aria-label="Indicatori ai rutei">
+      <article class="kpi kpi--progress">
+        <h2 class="kpi__label">Opriri finalizate</h2>
+        <p class="kpi__value"><span id="kpi-done">–</span><span class="kpi__of"> / <span id="kpi-total">–</span></span></p>
+        <div class="meter" role="progressbar" aria-label="Progresul rutei" id="kpi-meter" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0">
+          <span class="meter__fill" id="kpi-meter-fill"></span>
+        </div>
+      </article>
+      <article class="kpi">
+        <h2 class="kpi__label"><span class="dot-icon dot-icon--delivered" aria-hidden="true">✓</span>Livrate integral</h2>
+        <p class="kpi__value" id="kpi-delivered">–</p>
+      </article>
+      <article class="kpi">
+        <h2 class="kpi__label"><span class="dot-icon dot-icon--partial" aria-hidden="true">½</span>Livrate parțial</h2>
+        <p class="kpi__value" id="kpi-partial">–</p>
+      </article>
+      <article class="kpi">
+        <h2 class="kpi__label"><span class="dot-icon dot-icon--refused" aria-hidden="true">×</span>Refuzate</h2>
+        <p class="kpi__value" id="kpi-refused">–</p>
+      </article>
+      <article class="kpi kpi--money">
+        <h2 class="kpi__label">Valoare livrată integral</h2>
+        <p class="kpi__value"><span id="kpi-value">–</span> <span class="kpi__unit">MDL</span></p>
+        <p class="kpi__sub">+ <span id="kpi-partial-value">0</span> MDL în livrări parțiale</p>
+      </article>
+    </section>
+
+    <section class="panel panel--stops" aria-labelledby="stops-title">
+      <div class="panel__head">
+        <h2 id="stops-title">Ruta de azi</h2>
+        <p class="panel__hint" id="stops-hint">Fiecare oprire cu ultimul eveniment primit</p>
+      </div>
+      <ol id="stops" class="stops" aria-busy="true"></ol>
+      <p id="stops-empty" class="empty" hidden>Nicio oprire în rută.</p>
+    </section>
+
+    <section class="panel panel--feed" aria-labelledby="feed-title">
+      <div class="panel__head">
+        <h2 id="feed-title">Evenimente live</h2>
+        <p class="panel__hint">Cele mai noi primele</p>
+      </div>
+      <ol id="feed" class="feed"></ol>
+      <p id="feed-empty" class="empty" hidden>Încă nu a sosit niciun eveniment de la șofer.</p>
+    </section>
+  </main>
+
+  <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="false"></div>
+
+  <footer class="footer">
+    <span>Actualizare automată la fiecare 3 s</span>
+    <span aria-hidden="true">·</span>
+    <span>API: <code id="api-label">–</code></span>
+  </footer>
+
+  <template id="stop-tpl">
+    <li class="stop">
+      <div class="stop__num" aria-hidden="true"></div>
+      <div class="stop__body">
+        <div class="stop__row">
+          <h3 class="stop__customer"></h3>
+          <span class="chip"></span>
+        </div>
+        <p class="stop__meta"></p>
+        <details class="stop__items">
+          <summary></summary>
+          <ul></ul>
+        </details>
+        <div class="stop__event"></div>
+      </div>
+    </li>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
