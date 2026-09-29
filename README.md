@@ -1,5 +1,7 @@
 # Cornos Ilie - Mobile delivery proof
 
+[![CI](https://github.com/cs1lyuha/cornos-ilie-sales/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cs1lyuha/cornos-ilie-sales/actions/workflows/ci.yml)
+
 Expo / React Native MVP for the individual mobile brief:
 
 > Delivery confirmation screen that must work without internet.
@@ -26,7 +28,7 @@ Open the project in Expo Go or an Android emulator.
 
 ## Demo data
 
-The brief did not include an API, authentication, database schema, or real catalog. The app therefore uses three local stops and a local event queue. The future API adapter should replace `AsyncStorage` in `App.tsx` while preserving this event shape:
+The brief did not include an API, authentication, database schema, or real catalog. The app therefore uses three local stops and a local event queue. Queue logic lives in `src/queue.ts` and persistence in `src/storage.ts`; the future API adapter should build on them while preserving this event shape:
 
 ```ts
 {
@@ -37,6 +39,19 @@ The brief did not include an API, authentication, database schema, or real catal
   createdAt: string;
 }
 ```
+
+## Teste
+
+```bash
+npm test            # Jest (jest-expo) + React Native Testing Library
+npm run typecheck   # tsc --noEmit
+```
+
+- `src/__tests__/queue.test.ts` - pure queue logic (`src/queue.ts`): event creation, one current event per stop, applying events to stops, route progress.
+- `src/__tests__/storage.test.ts` - AsyncStorage wrapper (`src/storage.ts`), including corrupted or unreadable data.
+- `__tests__/App.test.tsx` - the full flow: open a stop, add a note, confirm, check status, offline counter, stored event and reload after re-mount.
+
+CI (`.github/workflows/ci.yml`) runs `npm ci`, the typecheck and the tests on every push and pull request to `main`.
 
 ## Verification path
 
