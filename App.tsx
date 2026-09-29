@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -12,24 +11,9 @@ import {
   View,
 } from 'react-native';
 
-type StopStatus = 'pending' | 'delivered' | 'partial' | 'refused';
-
-type Stop = {
-  id: string;
-  customer: string;
-  address: string;
-  items: string[];
-  total: number;
-  status: StopStatus;
-};
-
-type DeliveryEvent = {
-  id: string;
-  stopId: string;
-  status: Exclude<StopStatus, 'pending'>;
-  note: string;
-  createdAt: string;
-};
+import { applyEventsToStops, createEvent, routeProgress as formatRouteProgress, upsertEvent } from './src/queue';
+import { loadEvents as loadStoredEvents, saveEvents } from './src/storage';
+import type { DeliveryEvent, Stop, StopStatus } from './src/types';
 
 const STOPS: Stop[] = [
   {
@@ -58,8 +42,6 @@ const STOPS: Stop[] = [
   },
 ];
 
-const EVENTS_KEY = 'cornos-ilie-delivery-events';
-
 export default function App() {
   const [stops, setStops] = useState(STOPS);
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
@@ -81,18 +63,13 @@ export default function App() {
 
   const selectedStop = stops.find((stop) => stop.id === selectedStopId);
   const pendingCount = events.length;
-  const completedCount = stops.filter((stop) => stop.status !== 'pending').length;
-  const routeProgress = useMemo(() => `${completedCount}/${stops.length}`, [completedCount, stops.length]);
+  const routeProgress = useMemo(() => formatRouteProgress(stops), [stops]);
 
   async function loadEvents() {
-    const stored = await AsyncStorage.getItem(EVENTS_KEY);
-    if (!stored) return;
-    const storedEvents = JSON.parse(stored) as DeliveryEvent[];
+    const storedEvents = await loadStoredEvents();
+    if (storedEvents.length === 0) return;
     setEvents(storedEvents);
-    setStops((current) => current.map((stop) => {
-      const event = storedEvents.find((item) => item.stopId === stop.id);
-      return event ? { ...stop, status: event.status } : stop;
-    }));
+    setStops((current) => applyEventsToStops(current, storedEvents));
   }
 
   function openStop(stop: Stop) {
@@ -104,17 +81,11 @@ export default function App() {
 
   async function saveDelivery(status: Exclude<StopStatus, 'pending'>) {
     if (!selectedStop) return;
-    const event: DeliveryEvent = {
-      id: `event-${Date.now()}`,
-      stopId: selectedStop.id,
-      status,
-      note: note.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    const nextEvents = [...events.filter((item) => item.stopId !== selectedStop.id), event];
-    await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(nextEvents));
+    const event = createEvent(selectedStop.id, status, note);
+    const nextEvents = upsertEvent(events, event);
+    await saveEvents(nextEvents);
     setEvents(nextEvents);
-    setStops((current) => current.map((stop) => stop.id === selectedStop.id ? { ...stop, status } : stop));
+    setStops((current) => applyEventsToStops(current, [event]));
     setSelectedStopId(null);
     setNote('');
     Alert.alert(
@@ -127,7 +98,7 @@ export default function App() {
     if (events.length === 0) return;
     setIsOnline(true);
     await new Promise((resolve) => setTimeout(resolve, 700));
-    await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify([]));
+    await saveEvents([]);
     setEvents([]);
     Alert.alert('Sincronizare simulată', 'Evenimentele locale au fost trimise către server.');
   }
