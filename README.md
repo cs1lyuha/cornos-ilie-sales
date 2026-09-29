@@ -29,6 +29,28 @@ Un traseu complet, făcut pe un telefon real, cu toate cele trei livrări salvat
   </tr>
 </table>
 
+## Construit cu 4 agenți AI în paralel
+
+A doua iterație a proiectului a fost construită de **4 agenți Claude Code care au lucrat în același timp**. Fiecare a avut copia lui izolată a proiectului (git worktree) și branch-ul lui. Toți au primit de la început **același contract API și aceeași formă a evenimentului de livrare**, ca piesele să se potrivească la final. Cât agenții lucrau, eu am coordonat: am definit contractul, am unit branch-urile, am rezolvat conflictele și am verificat întregul sistem cap-coadă.
+
+Au lucrat fiecare între 6 și 8 minute, toți în paralel, așa că totul a fost gata în **~8 minute în loc de ~27** cât ar fi durat unul după altul.
+
+| Agent | Ce a făcut | Impactul |
+| --- | --- | --- |
+| 🛰️ **1. Backend & sincronizare** | Server Node + Express (`server/`) cu `/route`, `/events`, `/status`, salvare atomică pe disc și 6 teste. În aplicație, `src/sync.ts`: trimitere cu timeout, 3 reîncercări cu pauze tot mai mari și retrimitere automată la 30 s. | Sincronizarea **simulată** a devenit **reală**. Serverul nu dublează evenimentele (după `id`), iar de pe telefon se șterg doar cele confirmate de server, deci **nicio livrare nu se pierde**, nici cu internet instabil. |
+| ✍️ **2. Dovada livrării** | Semnătura clientului desenată cu degetul (`react-native-svg`), poză cu camera (`expo-image-picker`), reguli pentru fiecare rezultat și mesaje de permisiune în română (`src/proof/`). | Confirmarea a devenit o **dovadă verificabilă**: fără semnătură nu se poate marca „Livrat integral”, iar un refuz cere o poză sau un motiv. Totul se salvează offline, în eveniment. |
+| 🧪 **3. Teste & CI** | A mutat logica cozii în `src/queue.ts` și `src/storage.ts`, a configurat Jest + React Native Testing Library și GitHub Actions. | **27 de teste** pentru aplicație (plus cele 6 ale serverului) rulează automat la fiecare push. Datele corupte din memorie nu mai blochează aplicația, iar orice regresie se vede imediat în insigna **CI**. |
+| 📊 **4. Dashboard dispecer** | Pagină web fără build (`dashboard/`), cu actualizare la 3 s, indicatori, stările opririlor, semnăturile desenate, flux live, temă luminoasă/întunecată și mod `?demo=1`. | Dispecerul **vede în timp real** ce se întâmplă pe traseu. E și cea mai bună piesă de demo: marchezi o livrare pe telefon și apare pe ecranul calculatorului. |
+
+**Ce a scos la iveală integrarea.** Agenții au lucrat separat, așa că la unire au ieșit **5 probleme reale**, toate reparate:
+- dovada se pierdea când lista de opriri venea de la server;
+- două evenimente create în aceeași milisecundă puteau avea același id, iar serverul ar fi păstrat doar unul;
+- testele vechi nu mai treceau după regula nouă cu semnătura;
+- testele ar fi făcut apeluri reale la rețea;
+- tipurile și salvarea erau duplicate între branch-uri.
+
+Toate sunt descrise în [`AI-LOG.md`](AI-LOG.md#parallel-agents-practice-follow-up).
+
 ## Run in three commands
 
 ```bash
