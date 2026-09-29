@@ -6,11 +6,16 @@ import {
   FlatList,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+
+import { ProofBadge, ProofSection } from './src/proof/ProofSection';
+import { checkProof } from './src/proof/rules';
+import { compactProof, type DeliveryProof } from './src/proof/types';
 
 type StopStatus = 'pending' | 'delivered' | 'partial' | 'refused';
 
@@ -21,6 +26,7 @@ type Stop = {
   items: string[];
   total: number;
   status: StopStatus;
+  proof?: DeliveryProof;
 };
 
 type DeliveryEvent = {
@@ -29,6 +35,7 @@ type DeliveryEvent = {
   status: Exclude<StopStatus, 'pending'>;
   note: string;
   createdAt: string;
+  proof?: { photoUri?: string; signature?: string };
 };
 
 const STOPS: Stop[] = [
@@ -65,6 +72,8 @@ export default function App() {
   const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
   const [events, setEvents] = useState<DeliveryEvent[]>([]);
   const [note, setNote] = useState('');
+  const [proof, setProof] = useState<DeliveryProof>({});
+  const [isSigning, setIsSigning] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -82,6 +91,11 @@ export default function App() {
   const selectedStop = stops.find((stop) => stop.id === selectedStopId);
   const pendingCount = events.length;
   const completedCount = stops.filter((stop) => stop.status !== 'pending').length;
+  const checks = {
+    delivered: checkProof('delivered', proof, note),
+    partial: checkProof('partial', proof, note),
+    refused: checkProof('refused', proof, note),
+  };
   const routeProgress = useMemo(() => `${completedCount}/${stops.length}`, [completedCount, stops.length]);
 
   async function loadEvents() {
@@ -91,30 +105,39 @@ export default function App() {
     setEvents(storedEvents);
     setStops((current) => current.map((stop) => {
       const event = storedEvents.find((item) => item.stopId === stop.id);
-      return event ? { ...stop, status: event.status } : stop;
+      return event ? { ...stop, status: event.status, proof: event.proof } : stop;
     }));
   }
 
   function openStop(stop: Stop) {
     setSelectedStopId(stop.id);
     setNote('');
+    setProof(stop.proof ?? {});
+    setIsSigning(false);
     setStartedAt(Date.now());
     setElapsed(0);
   }
 
   async function saveDelivery(status: Exclude<StopStatus, 'pending'>) {
-    if (!selectedStop) return;
+    if (!selectedStop || !checkProof(status, proof, note).ok) return;
+    const eventProof = compactProof(proof);
     const event: DeliveryEvent = {
       id: `event-${Date.now()}`,
       stopId: selectedStop.id,
       status,
       note: note.trim(),
       createdAt: new Date().toISOString(),
+      ...(eventProof ? { proof: eventProof } : {}),
     };
     const nextEvents = [...events.filter((item) => item.stopId !== selectedStop.id), event];
-    await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(nextEvents));
+    try {
+      await AsyncStorage.setItem(EVENTS_KEY, JSON.stringify(nextEvents));
+    } catch {
+      Alert.alert('Nu s-a putut salva', 'Memoria telefonului/browserului este plină. Încearcă fără poză sau eliberează spațiu.');
+      return;
+    }
     setEvents(nextEvents);
-    setStops((current) => current.map((stop) => stop.id === selectedStop.id ? { ...stop, status } : stop));
+    setStops((current) => current.map((stop) => stop.id === selectedStop.id ? { ...stop, status, proof: eventProof } : stop));
     setSelectedStopId(null);
     setNote('');
     Alert.alert(
@@ -172,6 +195,7 @@ export default function App() {
                     <Text style={styles.cardTitle}>{item.customer}</Text>
                     <Text style={styles.cardMeta}>{item.address}</Text>
                     <Text style={styles.cardMeta}>{item.items.length} produse · {item.total} MDL</Text>
+                    <ProofBadge proof={item.proof} />
                   </View>
                   <View style={[styles.statusBadge, item.status === 'delivered' && styles.statusDelivered, item.status === 'partial' && styles.statusPartial, item.status === 'refused' && styles.statusRefused]}>
                     <Text style={styles.statusText}>{item.status === 'pending' ? 'De livrat' : item.status === 'delivered' ? 'Livrat' : item.status === 'partial' ? 'Parțial' : 'Refuzat'}</Text>
@@ -181,7 +205,7 @@ export default function App() {
             />
           </>
         ) : (
-          <>
+          <ScrollView scrollEnabled={!isSigning} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.detailScroll}>
             <Pressable style={styles.backButton} onPress={() => setSelectedStopId(null)}>
               <Text style={styles.backText}>‹ Ruta de azi</Text>
             </Pressable>
@@ -199,7 +223,7 @@ export default function App() {
               <Text style={styles.orderCardTitle}>Comanda {selectedStop.total} MDL</Text>
               {selectedStop.items.map((item) => <Text key={item} style={styles.itemLine}>• {item}</Text>)}
             </View>
-            <Text style={styles.noteLabel}>Notă pentru sincronizare (opțional)</Text>
+            <Text style={styles.noteLabel}>Notă pentru sincronizare (obligatorie la parțial / refuz fără poză)</Text>
             <TextInput
               value={note}
               onChangeText={setNote}
@@ -208,21 +232,42 @@ export default function App() {
               style={styles.noteInput}
               multiline
             />
+            <ProofSection
+              key={selectedStop.id}
+              proof={proof}
+              onChange={(patch) => setProof((current) => ({ ...current, ...patch }))}
+              onSigningChange={setIsSigning}
+            />
             <Text style={styles.actionTitle}>Confirmă livrarea</Text>
-            <Pressable style={[styles.actionButton, styles.deliveredButton]} onPress={() => void saveDelivery('delivered')}>
+            <Pressable
+              style={[styles.actionButton, styles.deliveredButton, !checks.delivered.ok && styles.actionDisabled]}
+              disabled={!checks.delivered.ok}
+              accessibilityState={{ disabled: !checks.delivered.ok }}
+              onPress={() => void saveDelivery('delivered')}
+            >
               <Text style={styles.actionIcon}>✓</Text>
-              <View><Text style={styles.actionText}>Livrat integral</Text><Text style={styles.actionHint}>Toate produsele au fost predate</Text></View>
+              <View><Text style={styles.actionText}>Livrat integral</Text><Text style={[styles.actionHint, !checks.delivered.ok && styles.actionHintMissing]}>{checks.delivered.hint}</Text></View>
             </Pressable>
-            <Pressable style={[styles.actionButton, styles.partialButton]} onPress={() => void saveDelivery('partial')}>
+            <Pressable
+              style={[styles.actionButton, styles.partialButton, !checks.partial.ok && styles.actionDisabled]}
+              disabled={!checks.partial.ok}
+              accessibilityState={{ disabled: !checks.partial.ok }}
+              onPress={() => void saveDelivery('partial')}
+            >
               <Text style={styles.actionIcon}>½</Text>
-              <View><Text style={styles.actionText}>Livrat parțial</Text><Text style={styles.actionHint}>Ajustează detaliile în notă</Text></View>
+              <View><Text style={styles.actionText}>Livrat parțial</Text><Text style={[styles.actionHint, !checks.partial.ok && styles.actionHintMissing]}>{checks.partial.hint}</Text></View>
             </Pressable>
-            <Pressable style={[styles.actionButton, styles.refusedButton]} onPress={() => void saveDelivery('refused')}>
+            <Pressable
+              style={[styles.actionButton, styles.refusedButton, !checks.refused.ok && styles.actionDisabled]}
+              disabled={!checks.refused.ok}
+              accessibilityState={{ disabled: !checks.refused.ok }}
+              onPress={() => void saveDelivery('refused')}
+            >
               <Text style={styles.actionIcon}>×</Text>
-              <View><Text style={styles.actionText}>Refuzat</Text><Text style={styles.actionHint}>Salvează motivul în notă</Text></View>
+              <View><Text style={styles.actionText}>Refuzat</Text><Text style={[styles.actionHint, !checks.refused.ok && styles.actionHintMissing]}>{checks.refused.hint}</Text></View>
             </Pressable>
             <Text style={styles.offlineHint}>● Se salvează pe telefon înainte de sincronizare</Text>
-          </>
+          </ScrollView>
         )}
       </View>
     </SafeAreaView>
@@ -278,5 +323,8 @@ const styles = StyleSheet.create({
   actionIcon: { color: '#152033', fontSize: 24, fontWeight: '800', width: 38, textAlign: 'center' },
   actionText: { color: '#152033', fontSize: 15, fontWeight: '800' },
   actionHint: { color: '#68738a', fontSize: 12, marginTop: 3 },
+  actionDisabled: { opacity: 0.55 },
+  actionHintMissing: { color: '#b42318', fontWeight: '700' },
+  detailScroll: { paddingBottom: 40 },
   offlineHint: { color: '#387255', fontSize: 12, textAlign: 'center', marginTop: 18, fontWeight: '700' },
 });
