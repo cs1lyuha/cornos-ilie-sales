@@ -1,0 +1,19 @@
+{
+  "name": "cornos-ilie-delivery-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minimal delivery-event backend for the Cornos Ilie offline delivery app",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}
