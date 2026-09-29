@@ -20,6 +20,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Permite aplicației $(PRODUCT_NAME) să folosească camera pentru a fotografia dovada livrării.",
+          "photosPermission": "Permite aplicației $(PRODUCT_NAME) să acceseze pozele pentru dovada livrării.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }

@@ -9,6 +9,7 @@ export type Stop = {
   items: string[];
   total: number;
   status: StopStatus;
+  proof?: DeliveryProof;
 };
 
 export type DeliveryProof = {

@@ -33,11 +33,11 @@ export function upsertEvent(events: DeliveryEvent[], event: DeliveryEvent): Deli
   return [...events.filter((item) => item.stopId !== event.stopId), event];
 }
 
-/** Returns stops with their status taken from the matching queued event, if any. */
+/** Returns stops with their status and proof taken from the matching queued event, if any. */
 export function applyEventsToStops(stops: Stop[], events: DeliveryEvent[]): Stop[] {
   return stops.map((stop) => {
     const event = events.find((item) => item.stopId === stop.id);
-    return event ? { ...stop, status: event.status } : stop;
+    return event ? { ...stop, status: event.status, proof: event.proof } : stop;
   });
 }
 

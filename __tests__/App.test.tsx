@@ -16,6 +16,18 @@ const OUTCOME_BUTTONS = {
 
 type User = ReturnType<typeof userEvent.setup>;
 
+// Drawing with PanResponder can't be driven from Jest; a button stands in for the signature pad.
+jest.mock('../src/proof/SignaturePad', () => {
+  const { Pressable, Text } = jest.requireActual('react-native');
+  return {
+    SignaturePad: ({ onChange }: { onChange: (signature: string | undefined) => void }) => (
+      <Pressable onPress={() => onChange(JSON.stringify({ w: 300, h: 170, d: 'M10 10 L200 120' }))}>
+        <Text>Semnează (test)</Text>
+      </Pressable>
+    ),
+  };
+});
+
 async function storedEvents(): Promise<DeliveryEvent[]> {
   return JSON.parse((await AsyncStorage.getItem(EVENTS_KEY)) ?? '[]') as DeliveryEvent[];
 }
@@ -28,6 +40,7 @@ async function confirmStop(user: User, customer: string, outcome: keyof typeof O
   await user.press(screen.getByText(customer));
   expect(await screen.findByText('Confirmă livrarea')).toBeOnTheScreen();
   if (note) await user.type(screen.getByPlaceholderText(NOTE_PLACEHOLDER), note);
+  if (outcome !== 'refused') await user.press(screen.getByText('Semnează (test)'));
   await user.press(screen.getByText(OUTCOME_BUTTONS[outcome]));
   expect(await screen.findByText('Ruta de azi')).toBeOnTheScreen();
 }
@@ -75,6 +88,16 @@ describe('App', () => {
 
     expect(screen.getByText('La Plăcinte Centru')).toBeOnTheScreen();
     expect(screen.getAllByText('De livrat')).toHaveLength(3);
+  });
+
+  it('does not save a full delivery until the customer has signed', async () => {
+    await render(<App />);
+
+    await user.press(screen.getByText('Coffee Break'));
+    await user.press(screen.getByText(OUTCOME_BUTTONS.delivered));
+
+    expect(screen.getByText('Confirmă livrarea')).toBeOnTheScreen();
+    expect(await storedEvents()).toHaveLength(0);
   });
 
   it('confirms a delivery offline: status, counter and AsyncStorage are updated', async () => {
